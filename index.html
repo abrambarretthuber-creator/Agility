@@ -282,6 +282,12 @@ const BENCHMARKS=[
 ];
 
 // ── STATE
+function localKey(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return`${y}-${m}-${day}`;
+}
 function todayKey(){const d=new Date();return localKey(d);}
 function load(){
   try{
@@ -447,12 +453,6 @@ const TRACKED_HABITS=[
   {id:'plan',    emoji:'📆', label:'Plan tomorrow',      weekdayOnly:false},
 ];
 
-function localKey(d){
-  const y=d.getFullYear();
-  const m=String(d.getMonth()+1).padStart(2,'0');
-  const day=String(d.getDate()).padStart(2,'0');
-  return`${y}-${m}-${day}`;
-}
 
 function countEligibleDays(from,to,weekdayOnly){
   let count=0;const d=new Date(from);
