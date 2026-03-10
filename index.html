@@ -431,7 +431,7 @@ function toggleH(id){
 }
 
 // ── CONSISTENCY CALCULATIONS
-const CONTEST_START=new Date('2026-03-09');
+const CONTEST_START=new Date(2026,2,9); // March 9 2026 local time
 const TRACKED_HABITS=[
   {id:'noalc',   emoji:'🍷', label:'No alcohol',        weekdayOnly:false},
   {id:'nosugar', emoji:'🚫', label:'No refined sugar',  weekdayOnly:false},
@@ -586,6 +586,10 @@ function pickModality(mod){
   window._exConfirm=null;
   if(!S.exModality)S.exModality={};
   S.exModality[todayKey()]=mod;
+  // write to habitLog for consistency tracking
+  if(!S.habitLog)S.habitLog={};
+  if(!S.habitLog[todayKey()])S.habitLog[todayKey()]={};
+  S.habitLog[todayKey()]['exercise']=true;
   closeExModal();
   // now actually check off exercise
   const wasFull=activeHabits().filter(h=>S.done[h.id]).length===activeHabits().length;
@@ -611,7 +615,7 @@ function weekLabel(){
 
 function paceStatus(){
   const goal=100;
-  const startDate=new Date('2026-03-09'),endDate=new Date('2026-10-02');
+  const startDate=new Date(2026,2,9),endDate=new Date(2026,9,2);
   const totalWks=Math.round((endDate-startDate)/(7*24*3600*1000));
   const elapsed=Math.max(0,Math.round((new Date()-startDate)/(7*24*3600*1000)));
   const flownSinceStart=parseFloat(S.bm['loghours_cur'])||0;
