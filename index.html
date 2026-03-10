@@ -454,6 +454,8 @@ const TRACKED_HABITS=[
 ];
 
 
+function isWeekendDate(d){return d.getDay()===0||d.getDay()===6;}
+
 function countEligibleDays(from,to,weekdayOnly){
   let count=0;const d=new Date(from);
   while(d<=to){if(!weekdayOnly||!isWeekendDate(d))count++;d.setDate(d.getDate()+1);}
