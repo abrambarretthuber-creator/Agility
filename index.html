@@ -282,7 +282,7 @@ const BENCHMARKS=[
 ];
 
 // ── STATE
-function todayKey(){return new Date().toISOString().slice(0,10)}
+function todayKey(){const d=new Date();return localKey(d);}
 function load(){
   try{
     const s=JSON.parse(localStorage.getItem('endure2')||'{}');
@@ -447,7 +447,12 @@ const TRACKED_HABITS=[
   {id:'plan',    emoji:'📆', label:'Plan tomorrow',      weekdayOnly:false},
 ];
 
-function isWeekendDate(d){return d.getDay()===0||d.getDay()===6;}
+function localKey(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return`${y}-${m}-${day}`;
+}
 
 function countEligibleDays(from,to,weekdayOnly){
   let count=0;const d=new Date(from);
@@ -462,7 +467,7 @@ function getConsistencyStats(habitId,weekdayOnly){
   let monthDone=0,totalDone=0,monthBonus=0,totalBonus=0;
   const d=new Date(CONTEST_START);
   while(d<=now){
-    const key=d.toISOString().slice(0,10);
+    const key=localKey(d);
     const logged=S.habitLog&&S.habitLog[key]&&S.habitLog[key][habitId];
     const isWknd=isWeekendDate(d);
     if(logged){
