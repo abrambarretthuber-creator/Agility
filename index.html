@@ -886,8 +886,10 @@ function renderWeekly() {
   const d    = S.draft;
   const successId = 'weekly-success-msg';
 
-  // Pilot pace
-  const pilotHrs = parseFloat(S.bm.pilotHrs) || 0;
+  // Pilot pace — use same auto-computed total as Numbers tab
+  const _loggedHrs = S.weeklyLog.reduce((sum, e) => sum + (parseFloat(e.pilot) || 0), 0);
+  const _curWeekSaved = S.weeklyLog.some(e => e.weekStart === localKey(getWeekStart(new Date())));
+  const pilotHrs = Math.round((_loggedHrs + (_curWeekSaved ? 0 : (S.wtWeek.flying || 0))) * 10) / 10;
   const pacePill = pilotPaceIndicator(pilotHrs);
 
   // Family checkboxes (inline in weekly, same state as daily)
