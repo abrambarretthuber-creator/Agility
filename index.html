@@ -933,9 +933,9 @@ function renderWeekly() {
   const d    = S.draft;
   const successId = 'weekly-success-msg';
 
-  // Pilot pace — use same per-day pilotLog total as Numbers tab
+  // Pilot pace — only show once hours have actually been logged
   const pilotHrs = totalPilotHrs();
-  const pacePill = pilotPaceIndicator(pilotHrs);
+  const pacePill = pilotHrs > 0 ? pilotPaceIndicator(pilotHrs) : '';
 
   // Family checkboxes (inline in weekly, same state as daily)
   const checkSvg = `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`;
@@ -1074,7 +1074,7 @@ function renderNumbers() {
 
   // Auto-compute pilot hours by summing per-day pilotLog since contest start
   const pilotHrs = totalPilotHrs();
-  const pacePill  = pilotPaceIndicator(pilotHrs);
+  const pacePill  = pilotHrs > 0 ? pilotPaceIndicator(pilotHrs) : '';
 
   return `
   <div class="section-label">CONSISTENCY</div>
