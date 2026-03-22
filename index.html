@@ -868,8 +868,8 @@ function renderDaily() {
     </div>`;
   }
 
-  // Active habits for today
-  const active  = HABITS.filter(h => !h.weekdayOnly || !weekend);
+  // Daily habits are weekdays only — no tracking on weekends
+  const active  = weekend ? [] : HABITS;
   const log     = S.habitLog[tk] || {};
   const completed = active.filter(h => log[h.id]).length;
   const pct     = active.length > 0 ? Math.round(completed / active.length * 100) : 0;
@@ -877,12 +877,12 @@ function renderDaily() {
   let html = `<div class="daily-header">
     <div class="day-name">${dayName}</div>
     <div class="date-str">${dateStr}</div>
-  </div>
-  <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
-  <div class="progress-label">${completed}/${active.length} habits</div>`;
+  </div>`;
 
-  if (pct >= 100) {
-    html += `<div class="all-done-banner">🏆 All done. Every rep compounds.</div>`;
+  if (!weekend) {
+    html += `<div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
+    <div class="progress-label">${completed}/${active.length} habits</div>`;
+    if (pct >= 100) html += `<div class="all-done-banner">🏆 All done. Every rep compounds.</div>`;
   }
 
   html += `<div class="section-label">WEEKLY TARGETS</div>
@@ -890,10 +890,15 @@ function renderDaily() {
   for (const wt of WEEKLY_TARGETS) html += renderWeeklyTargetRow(wt);
   html += `</div>`;
 
-  html += `<div class="section-label">TODAY'S LEAD ACTIONS</div>
-  <div class="card-group">`;
-  for (const h of active) html += renderHabitRow(h, tk);
-  html += `</div><div style="height:16px"></div>`;
+  if (weekend) {
+    html += `<div class="log-empty" style="padding:32px 24px;font-size:14px;color:#aaa;">Weekend — rest day.<br>Daily habits resume Monday.</div>`;
+  } else {
+    html += `<div class="section-label">TODAY'S LEAD ACTIONS</div>
+    <div class="card-group">`;
+    for (const h of active) html += renderHabitRow(h, tk);
+    html += `</div>`;
+  }
+  html += `<div style="height:16px"></div>`;
 
   return html;
 }
