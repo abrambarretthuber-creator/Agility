@@ -297,6 +297,32 @@ body{
   text-align:center;
 }
 .export-btn:active{background:#fff3e0;}
+.data-btn-row{display:flex;gap:10px;margin:16px 16px 0;}
+.data-btn{
+  flex:1;padding:12px 8px;border-radius:10px;
+  font-family:'Epilogue',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;touch-action:manipulation;text-align:center;border:none;
+}
+.data-btn-export{background:#1a1a1a;color:#fff;}
+.data-btn-export:active{background:#333;}
+.data-btn-import{background:#E8E6E0;color:#1a1a1a;}
+.data-btn-import:active{background:#d4d0c8;}
+.import-area{
+  margin:12px 16px 0;padding:12px;
+  border:2px dashed #C68B3A;border-radius:10px;
+  background:#fffaf4;display:none;
+}
+.import-area textarea{
+  width:100%;height:90px;border:1px solid #E8E6E0;border-radius:7px;
+  font-family:'Epilogue',sans-serif;font-size:12px;color:#1a1a1a;
+  background:#fff;padding:8px;resize:none;box-sizing:border-box;
+}
+.import-confirm-btn{
+  display:block;width:100%;margin-top:8px;padding:10px;
+  background:#C68B3A;color:#fff;border:none;border-radius:8px;
+  font-family:'Epilogue',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;
+}
 .log-empty{
   text-align:center;padding:60px 24px;color:#aaa;font-size:15px;
 }
@@ -418,6 +444,24 @@ function getWeekStart(d) {
   date.setDate(date.getDate() - (dow === 0 ? 6 : dow - 1));
   return date;
 }
+function getWeekKeys(d) {
+  const start = getWeekStart(d);
+  const keys = [];
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(start);
+    day.setDate(day.getDate() + i);
+    keys.push(localKey(day));
+  }
+  return keys;
+}
+function totalPilotHrs() {
+  const contestKey = localKey(CONTEST_START);
+  return Math.round(
+    Object.entries(S.pilotLog)
+      .filter(([k]) => k >= contestKey)
+      .reduce((sum, [, v]) => sum + (parseFloat(v) || 0), 0)
+    * 10) / 10;
+}
 function fmtDate(d) {
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
@@ -491,6 +535,7 @@ let activeTab = 'daily';
 function makeState() {
   return {
     habitLog:    {},   // {dateKey:{habitId:true}}
+    pilotLog:    {},   // {dateKey: hoursFlown} — per-day flying hours
     done:        {},   // today's completions, cleared at midnight
     draft:       {},   // weekly check-in draft
     weeklyLog:   [],   // array of weekly snapshots
@@ -635,6 +680,7 @@ function migrateData() {
 // CONSISTENCY STATS
 // =====================================================================
 function countEligibleDays(habit, fromDate, toDate) {
+  // Weekends are always off days — count weekdays (Mon–Fri) only for all habits
   let count = 0;
   let d = new Date(fromDate);
   d.setHours(0, 0, 0, 0);
@@ -642,11 +688,7 @@ function countEligibleDays(habit, fromDate, toDate) {
   end.setHours(0, 0, 0, 0);
   while (d <= end) {
     const dow = d.getDay();
-    if (habit.weekdayOnly) {
-      if (dow >= 1 && dow <= 5) count++;
-    } else {
-      count++;
-    }
+    if (dow >= 1 && dow <= 5) count++;
     d = new Date(d);
     d.setDate(d.getDate() + 1);
   }
@@ -664,21 +706,20 @@ function getConsistencyStats(habit) {
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const effectiveMonthStart = monthStart < startDate ? startDate : monthStart;
 
-  // For exercise bonusWeekend: denominator = weekdays only, numerator = all days
-  const eligibleHabit = habit.bonusWeekend ? { id: habit.id, weekdayOnly: true } : habit;
-  const monthEligible   = countEligibleDays(eligibleHabit, effectiveMonthStart, today);
-  const runningEligible = countEligibleDays(eligibleHabit, startDate, today);
+  // Weekends are off days — denominator and numerator both use weekdays only
+  const monthEligible   = countEligibleDays(habit, effectiveMonthStart, today);
+  const runningEligible = countEligibleDays(habit, startDate, today);
 
   let monthLogged = 0, runningLogged = 0;
   let d = new Date(startDate);
   while (d <= today) {
-    const key = localKey(d);
     const dow = d.getDay();
-    // bonusWeekend: count all logged days (weekdays + weekends)
-    const eligible = habit.bonusWeekend ? true : (!habit.weekdayOnly || (dow >= 1 && dow <= 5));
-    if (eligible && S.habitLog[key] && S.habitLog[key][habit.id]) {
-      runningLogged++;
-      if (d >= effectiveMonthStart) monthLogged++;
+    if (dow >= 1 && dow <= 5) {  // weekdays only
+      const key = localKey(d);
+      if (S.habitLog[key] && S.habitLog[key][habit.id]) {
+        runningLogged++;
+        if (d >= effectiveMonthStart) monthLogged++;
+      }
     }
     d = new Date(d);
     d.setDate(d.getDate() + 1);
@@ -737,13 +778,14 @@ function renderWeeklyTargetRow(wt) {
 
   // Flying uses a decimal hours input instead of integer +/- buttons
   if (wt.id === 'flying') {
-    const hrs = S.wtWeek.flying || 0;
+    const weekTotal = S.wtWeek.flying || 0;
+    const todayHrs  = S.pilotLog[localKey(new Date())] || '';
     return `<div class="wt-row">
       <span class="wt-emoji">${wt.emoji}</span>
       <div class="wt-info"><div class="wt-name">${wt.name}</div><div class="wt-detail">${wt.detail}</div></div>
-      <span class="wt-count${hrs >= wt.target ? ' met' : ''}" id="wt-count-flying">${hrs}/${wt.target}</span>
-      <input class="wt-flying-input" type="number" inputmode="decimal" step="0.1" min="0" placeholder="0"
-        value="${hrs || ''}" oninput="setFlyingHrs(this.value)" onclick="event.stopPropagation()">
+      <span class="wt-count${weekTotal >= wt.target ? ' met' : ''}" id="wt-count-flying">${weekTotal}/${wt.target}</span>
+      <input class="wt-flying-input" type="number" inputmode="decimal" step="0.1" min="0" placeholder="today"
+        value="${todayHrs}" oninput="setFlyingHrs(this.value)" onclick="event.stopPropagation()">
     </div>`;
   }
 
@@ -886,10 +928,8 @@ function renderWeekly() {
   const d    = S.draft;
   const successId = 'weekly-success-msg';
 
-  // Pilot pace — use same auto-computed total as Numbers tab
-  const _loggedHrs = S.weeklyLog.reduce((sum, e) => sum + (parseFloat(e.pilot) || 0), 0);
-  const _curWeekSaved = S.weeklyLog.some(e => e.weekStart === localKey(getWeekStart(new Date())));
-  const pilotHrs = Math.round((_loggedHrs + (_curWeekSaved ? 0 : (S.wtWeek.flying || 0))) * 10) / 10;
+  // Pilot pace — use same per-day pilotLog total as Numbers tab
+  const pilotHrs = totalPilotHrs();
   const pacePill = pilotPaceIndicator(pilotHrs);
 
   // Family checkboxes (inline in weekly, same state as daily)
@@ -916,7 +956,7 @@ function renderWeekly() {
     <div class="checkin-card">
       <div class="checkin-label">✈️ Pilot — hours flown this week</div>
       <input class="checkin-input" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 4.5"
-        value="${d.pilot !== undefined && d.pilot !== '' ? d.pilot : (S.wtWeek.flying || '')}"
+        value="${d.pilot !== undefined && d.pilot !== '' ? d.pilot : (S.wtWeek.flying > 0 ? S.wtWeek.flying : '')}"
         oninput="draftInput('pilot',this.value)">
       ${pacePill}
     </div>
@@ -1027,11 +1067,8 @@ function renderNumbers() {
     </div>`;
   }
 
-  // Auto-compute pilot hours from all saved weekly log entries + current unsaved week
-  const loggedHrs = S.weeklyLog.reduce((sum, e) => sum + (parseFloat(e.pilot) || 0), 0);
-  const currentWeekHrs = S.wtWeek.flying || 0;
-  const currentWeekSaved = S.weeklyLog.some(e => e.weekStart === localKey(getWeekStart(new Date())));
-  const pilotHrs  = Math.round((loggedHrs + (currentWeekSaved ? 0 : currentWeekHrs)) * 10) / 10;
+  // Auto-compute pilot hours by summing per-day pilotLog since contest start
+  const pilotHrs = totalPilotHrs();
   const pacePill  = pilotPaceIndicator(pilotHrs);
 
   return `
@@ -1103,8 +1140,19 @@ function renderNumbers() {
 // RENDER: LOG TAB
 // =====================================================================
 function renderLog() {
+  const backupBtns = `
+  <div class="data-btn-row">
+    <button class="data-btn data-btn-export" onclick="exportData()">💾 Backup All Data</button>
+    <button class="data-btn data-btn-import" onclick="toggleImport()">📥 Restore Backup</button>
+  </div>
+  <div class="import-area" id="import-area">
+    <div id="import-instructions" style="font-size:12px;color:#888;margin-bottom:6px;">Paste your backup JSON below, then tap Restore.</div>
+    <textarea id="import-textarea" placeholder="Paste backup data here…"></textarea>
+    <button class="import-confirm-btn" id="import-confirm-btn" onclick="confirmImport()">Restore Data</button>
+  </div>`;
+
   if (!S.weeklyLog.length) {
-    return `<div class="log-empty">No weekly entries yet.<br>Complete your first check-in on the Weekly tab.</div>`;
+    return backupBtns + `<div class="log-empty" style="margin-top:0">No weekly entries yet.<br>Complete your first check-in on the Weekly tab.</div>`;
   }
 
   const entries = [...S.weeklyLog].reverse();
@@ -1115,7 +1163,7 @@ function renderLog() {
     companyGP:'GP/Emp', companyDE:'D/E Ratio',
   };
 
-  let html = `<button class="export-btn" onclick="exportLog()">📤 Export Log (Text)</button>`;
+  let html = backupBtns + `<button class="export-btn" onclick="exportLog()" style="margin-top:12px;">📤 Export Log (Text)</button>`;
 
   for (const entry of entries) {
     const ws = new Date(entry.weekStart + 'T12:00:00');
@@ -1176,17 +1224,23 @@ function adjustWT(id, delta) {
 }
 
 function setFlyingHrs(val) {
-  const v = Math.round((parseFloat(val) || 0) * 10) / 10; // round to 1 decimal
-  S.wtWeek.flying = v;
+  const v = Math.round((parseFloat(val) || 0) * 10) / 10;
+  const tk = todayKey();
+  // Store per-day
+  if (v > 0) { S.pilotLog[tk] = v; } else { delete S.pilotLog[tk]; }
+  // Recompute this week's total
+  const weekTotal = Math.round(
+    getWeekKeys(new Date()).reduce((sum, k) => sum + (S.pilotLog[k] || 0), 0) * 10) / 10;
+  S.wtWeek.flying = weekTotal;
+  // Sync weekly check-in draft
+  if (weekTotal > 0) S.draft.pilot = String(weekTotal);
   saveS();
-  // Update count display without full re-render (keeps input focus)
+  // Update count badge without full re-render (keeps input focus)
   const el = document.getElementById('wt-count-flying');
   if (el) {
-    el.className = 'wt-count' + (v >= 4 ? ' met' : '');
-    el.textContent = `${v}/4`;
+    el.className = 'wt-count' + (weekTotal >= 4 ? ' met' : '');
+    el.textContent = `${weekTotal}/4`;
   }
-  // Keep weekly draft pilot in sync
-  S.draft.pilot = v > 0 ? String(v) : (S.draft.pilot || '');
 }
 
 function adjustStudy(delta) {
@@ -1395,6 +1449,74 @@ function exportLog() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// =====================================================================
+// DATA BACKUP / RESTORE
+// =====================================================================
+function exportData() {
+  const json = JSON.stringify(S, null, 2);
+  // Try clipboard first (works on modern iOS Safari)
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(json).then(() => {
+      alert('✅ All data copied to clipboard!\n\nPaste it into a notes app to save, or paste into the Import field on your other device.');
+    }).catch(() => _fallbackExport(json));
+  } else {
+    _fallbackExport(json);
+  }
+}
+
+function _fallbackExport(json) {
+  // Fallback: show in a textarea the user can copy manually
+  const ta = document.getElementById('import-textarea');
+  const area = document.getElementById('import-area');
+  area.style.display = 'block';
+  ta.value = json;
+  ta.select();
+  document.getElementById('import-confirm-btn').style.display = 'none';
+  document.getElementById('import-instructions').textContent = 'Copy everything above, then paste into the Import field on your new device.';
+}
+
+function toggleImport() {
+  const area = document.getElementById('import-area');
+  const visible = area.style.display !== 'none';
+  area.style.display = visible ? 'none' : 'block';
+  if (!visible) {
+    document.getElementById('import-textarea').value = '';
+    document.getElementById('import-confirm-btn').style.display = 'block';
+    document.getElementById('import-instructions').textContent = 'Paste your backup JSON below, then tap Restore.';
+  }
+}
+
+function confirmImport() {
+  const raw = document.getElementById('import-textarea').value.trim();
+  if (!raw) { alert('Paste your backup data first.'); return; }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed.habitLog && !parsed.weeklyLog && !parsed.bm) {
+      alert('That doesn\'t look like Agility backup data. Please check and try again.');
+      return;
+    }
+    if (!confirm('Restore this backup? Your current data will be replaced.')) return;
+    // Deep-merge so new app fields get defaults if missing from old backup
+    const base = makeState();
+    const defBm         = {...base.bm};
+    const defWtWeek     = {...base.wtWeek};
+    const defStudyMonth = {...base.studyMonth};
+    const defFastMonth  = {...base.fastMonth};
+    const merged = Object.assign(base, parsed);
+    merged.bm         = Object.assign(defBm,         parsed.bm         || {});
+    merged.wtWeek     = Object.assign(defWtWeek,     parsed.wtWeek     || {});
+    merged.studyMonth = Object.assign(defStudyMonth, parsed.studyMonth || {});
+    merged.fastMonth  = Object.assign(defFastMonth,  parsed.fastMonth  || {});
+    S = merged;
+    saveS();
+    document.getElementById('import-area').style.display = 'none';
+    render();
+    alert('✅ Data restored successfully!');
+  } catch(e) {
+    alert('Invalid data — make sure you pasted the full backup text.');
+  }
 }
 
 // =====================================================================
