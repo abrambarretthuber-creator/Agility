@@ -706,19 +706,25 @@ function getConsistencyStats(habit) {
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const effectiveMonthStart = monthStart < startDate ? startDate : monthStart;
 
-  // Weekends are off days — denominator and numerator both use weekdays only
-  const monthEligible   = countEligibleDays(habit, effectiveMonthStart, today);
-  const runningEligible = countEligibleDays(habit, startDate, today);
+  // cal and protein are exempt on fast days — don't count those days at all
+  const fastExempt = (habit.id === 'cal' || habit.id === 'protein');
 
-  let monthLogged = 0, runningLogged = 0;
+  let monthEligible = 0, runningEligible = 0;
+  let monthLogged   = 0, runningLogged   = 0;
+
   let d = new Date(startDate);
   while (d <= today) {
     const dow = d.getDay();
     if (dow >= 1 && dow <= 5) {  // weekdays only
       const key = localKey(d);
-      if (S.habitLog[key] && S.habitLog[key][habit.id]) {
-        runningLogged++;
-        if (d >= effectiveMonthStart) monthLogged++;
+      const isFastDay = fastExempt && !!(S.habitLog[key] && S.habitLog[key]['fast']);
+      if (!isFastDay) {
+        runningEligible++;
+        if (d >= effectiveMonthStart) monthEligible++;
+        if (S.habitLog[key] && S.habitLog[key][habit.id]) {
+          runningLogged++;
+          if (d >= effectiveMonthStart) monthLogged++;
+        }
       }
     }
     d = new Date(d);
@@ -868,8 +874,12 @@ function renderDaily() {
     </div>`;
   }
 
-  // Daily habits are weekdays only — no tracking on weekends
-  const active  = weekend ? [] : HABITS;
+  // Daily habits are weekdays only — no tracking on weekends.
+  // On a fast day, cal and protein are exempt and removed from the list.
+  const fastToday = !!(S.habitLog[tk] && S.habitLog[tk]['fast']);
+  const active = weekend ? [] : HABITS.filter(h =>
+    !(fastToday && (h.id === 'cal' || h.id === 'protein'))
+  );
   const log     = S.habitLog[tk] || {};
   const completed = active.filter(h => log[h.id]).length;
   const pct     = active.length > 0 ? Math.round(completed / active.length * 100) : 0;
