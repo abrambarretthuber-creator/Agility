@@ -559,6 +559,7 @@ function makeState() {
       pipelineTarget:'$55M', proposalsTarget:'',    revenueTarget:'',
       gpPerEmpTarget:'',     debtEquityTarget:'1.00',
       booksTarget:'7',       longestFastTarget:'24+',
+      studyTarget:'',
     },
     bmHistory:   [],
     wtWeek: {
@@ -751,9 +752,10 @@ function pilotPaceIndicator(actual) {
   const start = new Date(CONTEST_START); start.setHours(0,0,0,0);
   const end   = new Date(CONTEST_END);   end.setHours(0,0,0,0);
   if (today < start) return '';
+  const target      = parseFloat(S.bm.pilotHrsTarget) || 100;
   const totalDays   = Math.round((end - start) / 86400000) + 1;
   const elapsedDays = Math.round((today - start) / 86400000) + 1;
-  const expected    = (elapsedDays / totalDays) * 100;
+  const expected    = (elapsedDays / totalDays) * target;
   const delta       = actual - expected;
   let cls, label;
   if (delta >= 5)       { cls='pace-purple'; label=`+${delta.toFixed(1)} hrs ahead — on fire 🔥`; }
@@ -1130,6 +1132,20 @@ function renderNumbers() {
       </div>
     </div>
     ${pilotHrs > 0 ? `<div style="padding:4px 16px 12px">${pacePill}</div>` : ''}
+    <div class="bm-row">
+      <div class="bm-label">📖 Aviation study <span class="bm-sub">this month</span></div>
+      <div class="bm-fields">
+        <div class="bm-field">
+          <span class="bm-field-lbl">Target/mo</span>
+          <input class="bm-input" type="text" inputmode="numeric" placeholder="—"
+            value="${escHtml(bm.studyTarget||'')}" oninput="bmInput('studyTarget',this.value)">
+        </div>
+        <div class="bm-field">
+          <span class="bm-field-lbl">This month</span>
+          <div class="bm-input bm-now bm-computed">${S.studyMonth.hrs > 0 ? S.studyMonth.hrs + 'h' : '—'}</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="section-label">COMPANY BENCHMARKS</div>
