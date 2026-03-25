@@ -489,7 +489,6 @@ const KIDS = [
 const HABITS = [
   { id:'study',    emoji:'✈️', name:'Aviation study',    sub:'1 hr focused, no passive content', allDays:true,     special:'study'    },
   { id:'exercise', emoji:'🏃', name:'Exercise',          sub:'4mi run / 2000m row / 45min lift',  allDays:true,     special:'exercise' },
-  { id:'fast',     emoji:'⏱️', name:'Monthly fast',      sub:'Target 24+ hrs',                   allDays:true,     special:'fast'     },
   { id:'nosugar',  emoji:'🚫', name:'No refined sugar',  sub:'',                                  allDays:true  },
   { id:'noalcohol',emoji:'🍷', name:'No alcohol',        sub:'',                                  allDays:true  },
   { id:'read',     emoji:'📚', name:'Read / listen',     sub:'30 min',                            allDays:true  },
@@ -1161,6 +1160,10 @@ function renderNumbers() {
   <div class="card-group bm-section">
     ${bmRow('📚','Books completed','','books','numeric')}
     ${bmRow('⏱️','Longest fast this month','hrs','longestFast','numeric')}
+    <div class="bm-row" style="justify-content:space-between;align-items:center;flex-direction:row;">
+      <div class="bm-label" style="font-size:13px;">⏱️ Log a fast</div>
+      <button class="fast-log-btn" onclick="openFastModal()">Log fast</button>
+    </div>
   </div>
 
   <button class="save-bm-btn" onclick="saveBenchmarks()">Save Benchmarks</button>
